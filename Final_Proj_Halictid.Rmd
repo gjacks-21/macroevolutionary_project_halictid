@@ -1,0 +1,686 @@
+---
+title: "Investigating Diversification Rates and Eusociality in Halictid Bees"
+author: "Gloria Jackson"
+date: "`r Sys.Date()`"
+output:
+  pdf_document:
+    latex_engine: xelatex
+    number_sections: true
+bibliography: references.bib
+csl: apa-numeric-superscript.csl
+header-includes:
+  - \usepackage{placeins}
+  - \usepackage{float}
+
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r load libraries, message=FALSE, warning=FALSE, include=FALSE}
+library(tidyr)
+library(dplyr)
+library(rentrez)
+library(Biostrings)
+library(msa)
+library(ape)
+library(phangorn)
+library(diversitree)
+library(geiger)
+library(knitr)
+library(magick)
+library(grid)
+```
+
+
+# Introduction
+
+Eusociality is an advanced form of social organization that is characterized by cooperative brood care, generational overlap, and a reproductive division of labor where individuals are divided into reproductive and non-reproductive castes [@brady2006;@wilson2005]. The non-reproductive caste in a eusocial system is significantly larger than the reproductive caste, with mature individuals engaging in alloparental care for the young of the reproductive queen [@queller2003]. Eusocial behavior also encompasses adaptations such as complex communication and cooperative tasks like foraging as well as nest defense and construction [@brady2006]. Considering criteria such as total biomass, number of species, behavioral diversity and ecological interactions, the most successful eusocial taxa include ants and termites [@brady2006;@wilson2005]. Secondary to ants and termites in terms of advanced eusocial behavior are corbiculate bees (e.g. honeybees) and vespid wasps (e.g. wasps) [@brady2006]. Beyond these highly derived eusocial lineages, halictid bees represent a diverse and behaviorally flexible group in which eusociality has evolved repeatedly [@brady2006]. Many eusocial species in the Halictidae family remarkably have closely related lineages that are non-eusocial, and some even contain non-eusocial populations within the same species [@brady2006]. This pattern has never been observed in advanced eusocial taxa, and makes halictid bees an ideal system for studying how variation in social complexity influences the evolutionary trajectory across a taxonomic family [@brady2006].
+
+Previous works regarding eusociality have explored the concept of how the trait can arise and be maintained by natural selection, including inclusive fitness theory, protected invasion, parental manipulation, assured fitness returns, head-start models, and semisocial or mutualistic pathways [@brady2006;@gadagkar1994]. In halictid bees specifically, work has been done to assess the timing and historical context of eusocial transitions. Phylogenetic analyses suggest that eusociality has evolved three separate times within the family, with multiple subsequent reversals to simpler social forms or fully solitary nesting in each of the three primarily eusocial clades [@danforth2002;@packer1991]. A study by Brady et al. [@brady2006], the foundational paper for this project, analyzed over 2,400 base pairs of DNA from three nuclear protein-coding genes (opsin, wingless, and EF-1a) to reconstruct the phylogeny of eusocial halictid lineages and their relatives [@brady2006]. Using relaxed molecular clock dating that integrates molecular and fossil evidence, the authors found that the three independent origins of eusociality in halictid bees occurred within a narrow window, approximately 20–22 million years ago [@brady2006]. This relatively recent emergence likely explains the high degree of social variation observed in these bees [@brady2006]. Furthermore, these origins coincide with a period of global warming, suggesting that climate change may have played a significant role in the evolution and persistence of eusociality in halictid bees [@brady2006]. Collectively, these previous works yield a rich understanding of the mechanisms by which eusociality evolves as well as the diverse nature of eusociality in halictid bees. However, the broader macroevolutionary consequences of these transitions, particularly their impact on diversification dynamics, remain poorly understood.
+
+The goal of this project is to test whether eusocial lineages of halictid bees exhibit higher diversification rates than their non-eusocial relatives, and if the trait of eusociality has an impact on speciation, extinction, and/or character transition rates. This question is particularly compelling because the repeated gains and losses of eusociality within Halictidae provide a rare opportunity to evaluate how shifts in social complexity can sculpt macroevolutionary dynamics. This project integrates time-calibrated phylogenies with trait-dependent diversification analyses, building upon previous work by extending beyond questions of *how* and *when* eusociality evolved to assess the evolutionary consequences of these transitions for diversification across the family.
+
+# Methods
+
+## Data Availability
+
+All sequence data for this study were sourced from the dataset published by Brady et al. [@brady2006]. This original dataset included sequences from three genes—long-wavelength rhodopsin (opsin), wingless, and the F2 copy of elongation factor-1a—for 66 bee species across all subfamilies of Halictidae (Rophitinae, Nomiinae, Nomioidinae, and Halictinae), encompassing both major tribes and most genera [@brady2006]. The sequences, identified by the GenBank accession numbers listed in Brady et al. [@brady2006] supplementary materials, were downloaded using the `rentrez()` function in R. Because the foundational paper's dating analysis on which this current study relies excluded the subfamily Rophitinae, the final dataset was refined to 53 halictid species, representing the Nomiinae, Nomioidinae, and Halictinae subfamilies, while retaining broad taxonomic coverage across the Halictini and Augochlorini tribes.
+
+## Phylogenetic methods
+
+To establish consistent reading frames and intron–exon boundaries across taxa, sequences for each gene were first aligned using `Clustal W` to the published *Apis mellifera* reference used in the Brady et al. [@brady2006] paper. For the opsin gene, the foundational study reported that “the two entire opsin introns and a total of 137 bp within the two EF-1a introns were unalignable and excluded from all analyses” [@brady2006]. Opsin and EF-1a each contain three introns. To identify the unalignable opsin introns, the halictid–*Apis* alignment was inspected in AliView[@larsson2014] and regions where *Apis* contained gaps while halictid species retained sequence were located. These regions corresponded to introns 2 and 3, which showed extensive gap structure and limited positional homology, in contrast to intron 1, which aligned more consistently across taxa. Introns 2 and 3 were therefore removed prior to downstream analyses. Following this step, the *Apis* sequence was excluded and the remaining halictid sequences were refined using trimAl [@capellagutierrez2009] to correct obvious alignment artifacts. For EF-1α, alignment to *Apis* clearly outlined intronic regions, but it was not possible to determine which specific 137 bp from which introns were removed in the original study. Consequently, after removing the *Apis* sequence, trimAl[@capellagutierrez2009] was utilized to identify and exclude ambiguously aligned sites across the halictid sequences. No trimming was required for the wingless gene, as all regions aligned unambiguously. Before trimming, the sequence lengths for this project's dataset were 1794 bp for EF-1a, 1429 bp for opsin, and 405 bp for wingless. After trimming, the alignments were reduced to 1536 bp (EF-1a), 531 bp (opsin), and 405 bp (wingless), respectively. These values are broadly comparable to the site counts reported in the foundational study (1526 bp for EF-1a, 489 bp for opsin, and 405 bp for wingless) [@brady2006], reflecting similar patterns of unalignable regions across datasets.
+
+Because the foundational study did not provide an EF-1a sequence for Corynura patagonica, a placeholder sequence consisting of 1536 gap characters (matching the length of the trimmed EF-1a alignment) was manually added to the EF-1a FASTA file to preserve taxon completeness in the concatenated dataset. After trimming and species inclusion were finalized for all three loci, the alignments were concatenated in R. A corresponding partition file was generated using the start and end positions of each gene block in the concatenated supermatrix to ensure that IQ-TREE[@minh2020iqtree2] applied independent substitution models to EF-1a, opsin, and wingless. Maximum-likelihood phylogenetic inference was performed in IQ-TREE[@minh2020iqtree2] using this concatenated alignment and partition scheme. Following tree inference, the resulting ML topology was read back into R [@Rcoreteam2024] for downstream visualization. Consistent with the foundational study [@brady2006], four species from the subfamily Nomiinae were designated as outgroups, as members of this lineage are predominantly solitary or communal and thus provide an appropriate phylogenetic root for examining eusocial evolution in Halictidae[@schwarz2007]. 
+
+To prepare the ML topology for divergence-time estimation, fossil-based calibration points were applied following the constraints reported in the foundational study. The root node was assigned a minimum age of 60 million years (MYA) and a maximum of 100 MYA [@brady2006]. The crown node uniting *Halictus, Lasioglossum, Mexalictus, Patellapis*, and *Thrincohalictus* was constrained with a minimum age of 42 MYA [@brady2006]. Two additional clades—the subfamily Halictinae (excluding *Corynura patagonica*) and the group uniting *Agapostemon, Rhinetula, Dinagapostemon, Habralictus, Caenohalictus, Ruizantheda,* and *Pseudagapostemon*—were each assigned minimum ages of 23 MYA [@brady2006]. Divergence times were then estimated using the `chronos()` function in the R[@Rcoreteam2024] package `ape`, producing the final time-calibrated phylogeny used in subsequent diversification analyses.
+
+## Diversification Rate Analysis (MEDUSA)
+
+To visualize diversification dynamics across the time-calibrated phylogeny, a lineage-through-time (LTT) plot was first generated in R. This provided an overview of changes in branching rates through evolutionary time and allowed assessment of whether rate shifts might be detectable under a birth–death framework. Because MEDUSA requires information on taxonomic richness to model incomplete sampling across higher-level clades,a genus-level richness table was constructed by recording the total number of known species represented by each tip in the tree, allowing inclusion of species that are described in the literature but not sampled in the project's dataset. These richness values function as sampling fractions, ensuring that diversification rate estimation reflects true clade diversity rather than only the sequenced subset. MEDUSA was then run in R[@Rcoreteam2024] using the chronos-calibrated tree and the genus-level richness data to compare birth–death models containing different numbers of diversification regimes. This analysis identified statistically supported rate shifts across the phylogeny and produced a MEDUSA rate-shift plot, which was subsequently used to determine where diversification rates changed and whether any shifts corresponded to particular clades or social states.
+
+## Trait-Dependent Diversification (BiSSE)
+
+To evaluate whether diversification rates differed between eusocial and non-eusocial lineages, a series of trait-dependent diversification analyses were conducted using the Binary State Speciation and Extinction (BiSSE) model. A binary trait table was first constructed by assigning each species in the phylogeny a value of 0 (non-eusocial) or 1 (eusocial) based on published natural history information. Because BiSSE requires state-specific sampling fractions to correct for incomplete taxon representation, sampling fractions were calculated by dividing the number of sampled species in each trait state by the total number of known species exhibiting that state in the real world. Using the time-calibrated tree, six BiSSE models representing different evolutionary scenarios were fit: (1) a full model in which all parameters (speciation, extinction, and transition rates) were allowed to differ between states; (2) a null model with all parameters constrained to be equal; (3) a model allowing only speciation rates to vary; (4) a model allowing only extinction rates to vary; (5) a model in which speciation and extinction varied but transition rates were constrained; and (6) a model with constant speciation and extinction rates, but with state-transition rates allowed to vary. Each model was fit via maximum likelihood, and model support was evaluated using ANOVA comparisons and Akaike weights. The model with the lowest AIC value and highest Akaike weight was selected for Bayesian inference. For the selected model, a BiSSE Markov chain Monte Carlo (MCMC) analysis was run for 10,000 iterations, discarding the first 2,000 iterations as burn-in. Convergence was assessed by inspecting a trace plot of the sampled parameter values. After confirming stable mixing, posterior distributions were summarized for speciation (lambda), extinction (mu), and the bidirectional character state transition rates (q), with parameters estimated either jointly or separately across states depending on the structure of the selected model.”
+
+# Results
+
+```{r reshaping the table, eval=FALSE, include=FALSE}
+df <- read.csv("halictid_accessions.csv")
+
+# replace spaces with underscores
+df$Taxon <- gsub(" ", "_", df$Taxon)
+
+#head(df) # checkpoint
+
+# pivot to long format
+df_long <- df %>%
+  pivot_longer(cols = c(Opsin, Wingless, EF1),
+               names_to = "gene",
+               values_to = "accession")
+
+head(df_long)
+```
+
+```{r downloading all seqs from genbank, eval=FALSE, include=FALSE}
+get_seq <- function(acc){
+  raw <- entrez_fetch(db="nuccore", id=acc, 
+                      rettype="fasta", retmode="text")
+
+  lines <- strsplit(raw, "\n")[[1]]
+
+  # remove unwanted metadata lines like "Length=750"
+  lines <- lines[!grepl("^Length", lines)]
+
+  # remove blank lines
+  lines <- lines[nchar(lines) > 0]
+
+  paste(lines, collapse="\n")
+}
+
+df_long$sequence <- sapply(df_long$accession, get_seq)
+
+head(df_long$sequence)
+```
+
+```{r checkpoint, eval=FALSE, include=FALSE}
+colnames(df_long)
+```
+
+```{r write 1 fasta per gene, eval=FALSE, include=FALSE}
+genes <- unique(df_long$gene)
+
+for(g in genes){
+  subset <- df_long %>% filter(gene == g)
+
+  fasta <- ""
+
+  for(i in 1:nrow(subset)){
+    # use the correct column name
+    header <- paste0(">", subset$Taxon[i])
+    
+    seq_lines <- unlist(strsplit(subset$sequence[i], "\n"))
+    seq_only  <- seq_lines[!startsWith(seq_lines, ">")]
+    seq_clean <- paste(seq_only, collapse = "")
+    
+    fasta <- paste0(fasta, header, "\n", seq_clean, "\n")
+  }
+
+  writeLines(fasta, paste0(g, ".fasta"))
+}
+
+```
+
+```{r align wingless first since no issue aligning introns, eval=FALSE, include=FALSE}
+### WINGLESS
+wing.seqs <- readDNAStringSet("Wingless.fasta")
+wing.seqs <- wing.seqs[order(names(wing.seqs))]
+
+wing.aln <- msa(wing.seqs, method="ClustalW", order="input")
+
+wing.aln.seqinr <- msaConvert(wing.aln, type="seqinr::alignment")
+wing.aln.dna <- DNAStringSet(wing.aln.seqinr$seq)
+names(wing.aln.dna) <- wing.aln.seqinr$nam
+
+writeXStringSet(wing.aln.dna, "Wingless_aligned.fasta")
+```
+
+```{r apis-opsin alignment, include=FALSE, eval=FALSE}
+opsin_all <- readDNAStringSet("Opsin_withApis.fasta")
+opsin_all <- opsin_all[order(names(opsin_all))]
+opsin_aln <- msa(opsin_all, method="ClustalW", order="input")
+
+opsin_aln_bin <- as.DNAbin(msaConvert(opsin_aln, type="seqinr::alignment"))
+write.FASTA(opsin_aln_bin, file = "Opsin_withApis_aligned.fasta")
+
+image(opsin_aln_bin, show.labels=TRUE)
+
+```
+
+```{r define intron columns to drop, include=FALSE, eval=FALSE}
+# initial gap in alignment added to align w/ apis
+gap <- 1:369
+
+# intron 2: 940–1349
+intron2 <- 940:1349
+
+# intron 3: 1532–1615
+intron3 <- 1532:1615
+
+cols_to_remove <- c(gap, intron2, intron3)
+
+# drop those columns from the alignment
+opsin_trimmed_bin <- opsin_aln_bin[, -cols_to_remove]
+
+# remove Apis reference sequence from the final matrix
+taxa <- rownames(opsin_trimmed_bin)
+apis_name <- "Apis_mellifera" 
+
+opsin_trimmed_bin_noApis <- opsin_trimmed_bin[setdiff(taxa, apis_name), ]
+
+# write trimmed alignment to fasta--will re-open in AliView to check alignment and maybe trim more
+write.FASTA(opsin_trimmed_bin_noApis, file = "Opsin_trimmed_noApis.fasta")
+
+```
+
+```{r trim opsin using trimAl, include=FALSE, eval=FALSE}
+write.FASTA(opsin_trimmed_bin_noApis, file="Opsin_clean_pretrim.fasta")
+
+# run trimAl
+system("/Users/gloriajackson/bin/trimal -in Opsin_clean_pretrim.fasta -out Opsin_trimal_auto.fasta -automated1") # checked new opsin length in AliView and this has 531 bp which is close enough to the paper's 489
+
+```
+
+```{r apis-EF1 alignment, include=FALSE, eval=FALSE}
+EF1_all <- readDNAStringSet("EF1_withApis.fasta")
+EF1_all <- EF1_all[order(names(EF1_all))]
+EF1_aln <- msa(EF1_all, method="ClustalW", order="input")
+
+EF1_aln_bin <- as.DNAbin(msaConvert(EF1_aln, type="seqinr::alignment"))
+write.FASTA(EF1_aln_bin, file = "EF1_withApis_aligned.fasta")
+
+image(EF1_aln_bin, show.labels=TRUE)
+```
+
+```{r let trimAl do the trimming for EF1 too, include=FALSE, eval=FALSE}
+# run trimAl
+system("/Users/gloriajackson/bin/trimal -in EF1_aligned_fixed.fasta -out EF1_trimal_auto.fasta -automated1") # apis removed after trimming; alignment has 1536 bp
+```
+
+```{r add a gap-only EF1 sequence for Corynura_(Cory)_patagonica, include=FALSE, eval=FALSE}
+ef1.aln <- readDNAStringSet("EF1_manualTrim_noApis.fasta")
+
+EF1_length <- width(ef1.aln)[1]
+#EF1_length
+
+gap_seq <- DNAString(paste(rep("-", EF1_length), collapse=""))
+gap_seq_set <- DNAStringSet(gap_seq)
+names(gap_seq_set) <- "Corynura_(Cory)_patagonica"
+
+ef1.aln.fixed <- c(ef1.aln, gap_seq_set)
+ef1.aln.fixed <- ef1.aln.fixed[order(names(ef1.aln.fixed))]
+
+writeXStringSet(ef1.aln.fixed, "EF1_final.fasta")
+
+
+```
+
+```{r concatenate, include=FALSE, eval=FALSE}
+# list aligned FASTA files
+my.files <- list.files(path = "./halictid-aligned",
+                       pattern = "*.fasta",
+                       full.names = TRUE)
+
+# read first aligned FASTA and alphabetize
+seqs <- readDNAStringSet(my.files[1])
+seqs <- seqs[order(names(seqs))]
+x <- seqs
+
+# track alignment lengths
+my.lengths <- rep(0, length(my.files))
+my.lengths[1] <- width(seqs)[1]
+
+# loop through remaining aligned FASTAs
+for (i in 2:length(my.files)) {
+
+    new <- readDNAStringSet(my.files[i])
+    new <- new[order(names(new))]
+
+    my.lengths[i] <- width(new)[1]
+
+    temp <- paste0(x, new)
+    names(temp) <- names(new)
+    x <- DNAStringSet(temp)
+}
+
+concat.aln = DNAMultipleAlignment(x)
+concat.mat <- as.matrix(concat.aln)
+concat.bin <- as.DNAbin(concat.mat)
+
+write.dna(concat.bin,
+          file = "HalictidaeConcat.phy",
+          format = "sequential",
+          nbcol = -1,
+          colsep = "")
+```
+
+```{r get start and end positions of gene blocks in concat align, include=FALSE, eval=FALSE}
+my.lengths
+cumsum(my.lengths)
+
+```
+
+```{r concat checks, include=FALSE, eval=FALSE}
+# visualize alignment
+aln <- read.dna("HalictidaeConcat.phy", format="sequential")
+
+aln.mat <- as.matrix(aln)   # <- makes it matrix-like
+image(aln.mat)
+
+# ensure each species has same total length
+widths <- sapply(aln, length)
+summary(widths)
+
+# check alphabetical ordering
+all(names(aln) == sort(names(aln)))
+
+```
+
+```{r partitioning, include=FALSE, eval=FALSE}
+# cumulative lengths
+cum = cumsum(my.lengths)
+
+# Start and end for each gene
+starts = c(1, cum[-length(cum)] + 1)
+ends   = cum
+
+# gene names
+gene.names = c("EF1", "Opsin", "Wingless")  # or whichever order my.files is in
+
+# generate actual lines
+part.lines = paste0("DNA, ", gene.names, " = ",
+                    starts, "-", ends)
+
+# write to partition file
+writeLines(part.lines, con = "halictid_partitions.txt")
+
+```
+
+```{bash run_iqtree_halictidae.sh, include=FALSE, eval=FALSE}
+#!/bin/bash
+#SBATCH --time=4:00:00
+#SBATCH --nodes=1
+#SBATCH --ntasks-per-node=1
+#SBATCH --mem=16GB
+#SBATCH --partition=Centaurus
+#SBATCH --job-name=halictid_iqtree
+#SBATCH --output=halictid_iqtree.out
+#SBATCH --error=halictid_iqtree.err
+
+module load iqtree
+
+# run IQ-TREE2 on the concatenated Halictidae dataset
+iqtree2 \
+  -s HalictidaeConcat.phy \
+  --prefix Halictid_ML \
+  -p halictid_partitions.txt \
+  -m MFP+MERGE \
+  -B 1000 \
+  -T AUTO -ntmax 8 \
+  --boot-trees
+```
+
+```{r plotting, include=FALSE}
+# read ML tree and bootstrap trees
+best.tree <- read.tree("Halictid_ML.treefile")
+boot.trees <- read.tree("Halictid_ML.ufboot")
+
+# compute bootstrap support
+boot.support <- prop.clades(best.tree, boot.trees)
+boot.support <- boot.support / 10    # IQ-TREE UFboot: divide by 10 to convert to %
+                                      # e.g., 950 → 95%
+
+# root the tree using 4 outgroups
+outgroups <- c("Lipotriches__Austro.__australica",
+               "Pseudapis_unidentata",
+               "Dieunomia_nevadensis",
+               "Dieunomia_triangulifera")
+
+rooted.tree <- root(best.tree, outgroup = outgroups, resolve.root = TRUE)
+
+# plot tree
+plot(rooted.tree, cex = 0.5)
+
+# add bootstrap support values
+#nodelabels(boot.support, cex = 0.5)
+
+```
+
+```{r getting node numbers for chronos tree calibration, include=FALSE, eval=FALSE}
+plot(rooted.tree)
+#nodelabels(cex=0.5) # nodes of note: 54 (root node: min 60MYA, max 100MYA), 69 (min 42MYA), [61,57] (min 23MYA)
+```
+
+```{r chronos calibration, include=FALSE}
+# calibration setup
+
+# node 54: root, min 60, max 100 MYA
+cal1 <- makeChronosCalib(rooted.tree, node = 54, age.min = 60, age.max = 100)
+
+# node 69: min 42 MYA
+cal2 <- makeChronosCalib(rooted.tree, node = 69, age.min = 42)
+
+# node 61: min 23 MYA
+cal3 <- makeChronosCalib(rooted.tree, node = 61, age.min = 23)
+
+# node 57: min 23 MYA
+cal4 <- makeChronosCalib(rooted.tree, node = 57, age.min = 23)
+
+# combine all calibrations
+calib <- c(cal1, cal2, cal3, cal4)
+
+# run chronos
+time.tree <- chronos(rooted.tree,
+                     lambda = 1,
+                     model = "discrete",   # relaxed clock
+                     calibration = calib,
+                     control = chronos.control(),
+                     quiet = FALSE)
+
+# plot and save
+plot(time.tree, show.tip.label = TRUE, cex = 0.6)
+axisPhylo()
+
+write.tree(time.tree, file = "Halictid_time_tree_calibrated.nwk")
+
+```
+
+```{r brady tree, fig.cap="Time-calibrated phylogeny of halictid bees reconstructed by the authors of the foundational study using a relaxed molecular clock implemented in MrBayes 3.0 [@brady2006].", echo=FALSE}
+img <- image_read("brady-time-tree.png")
+plot(img)
+```
+
+```{r plot time tree, fig.cap="Time-calibrated phylogeny of halictid bees estimated using the `chronos()` relaxed molecular clock method in `R`. Branch lengths reflect relative divergence times among lineages.", echo=FALSE}
+plot(time.tree, show.tip.label = TRUE, cex = 0.4)
+axisPhylo()
+```
+
+```{r LTT plot, fig.cap="Lineage-through-time (LTT) plot for halictid bees showing the accumulation of lineages through evolutionary time. The curve reflects the underlying diversification dynamics inferred from the time-calibrated phylogeny.", echo=FALSE}
+ltt.plot(time.tree)
+```
+
+```{r MEDUSA, include=FALSE, eval=FALSE}
+# get tree tip labels
+taxa <- time.tree$tip.label
+info <- data.frame(
+  taxon = c("Agapostemon_leunculus", "Agapostemon_tyleri", "Augochlora__Augochlora__pura", 
+            "Augochlorella_pomoniella", "Megalopta_genalis", "Neocorynura_discolor", 
+            "Augochloropsis_metallica", "Corynura__Cory__patagonica", "Dieunomia_nevadensis", 
+            "Dieunomia_triangulifera", "Lipotriches__Austro.__australica", "Pseudapis_unidentata", 
+            "Nomioides_facilis", "Chaetalictus_sp._2", "Lomatalictus_sp.", "Pachyhalictus_sp.", 
+            "Mexalictus_arizonensis","H.__Halictus__ligatus", "H.__Halictus__quadricinctus", 
+            "H.__Halictus__scabiosae", "H.__Seladonia__kessleri", "H.__Vestitohalictus__vestitus", 
+            "H.__Seladonia__tripartitus", "Thrincohalictus_prognathus", "L.___Dialictus___figueresi",
+            "L.__Dialictus__zephyrum", "L.__Hemihalictus__lustrans", "L.__Evylaeus__calceatum", 
+            "L.__Evylaeus__malachurum", "L.__Sphecodogastra__oenotherae", "L.__Evylaeus__marginatum", 
+            "L.__Evylaeus__politum", "L.__Australictus__lithuscum", "L.__Homalictus__megastigmus",
+            "L.__Homalictus__punctatus","L.__Chilalictus__florale", "L.__Chilalictus__lanarium",
+            "L.__Lasioglossum__scitulum","L.__Lasioglossum__zonulum", "L.__Parasphecodes__hybodinum", 
+            "L.__Lasioglossum__athabascense","Sphecodes_minor", "Sphecodes_ranunculi", 
+            "Caenohalictus_sp._2", "Caenohalictus_sp._3", "Habralictus_sp.", "Pseudagapostemon_brasiliensis",
+            "Pseudagapostemon_pissisi","Ruizantheda_proxima", "Ruizantheda_mutabilis", 
+            "Dinagapostemon_sp._1", "Dinagapostemon_sp._2", "Rhinetula_denticrus"),
+  n.taxa = c(42, 42, 127, 17, 32, 81, 140, 22, 9, 9, 266, 73, 62, 71, 71, 71, 22,
+             330, 330, 330, 330, 330, 330, 1, 1800, 1800, 1800, 1800, 1800, 1800,
+             1800, 1800, 1800, 1800, 1800, 1800, 1800, 1800, 1800, 1800, 1800, 319,
+             319, 45, 45, 27, 33, 33, 8, 8, 9, 9, 2)
+)
+
+# ensure taxon names are in same order as tip labels in tree and are an exact match
+info <- info[match(time.tree$tip.label, info$taxon), ]
+#setdiff(taxa, info$taxon) # checkpoint
+
+medusa.res = medusa(time.tree, richness=info, warnings=FALSE, ncores = 1, partitions=3)
+plot(medusa.res, label.offset=0.5, edge.width=2)
+```
+
+```{r plot MEDUSA, fig.cap="MEDUSA analysis identifying shifts in diversification rates across 53 halictid bee species. Branches highlighted in color denote clades experiencing significantly different diversification dynamics compared to the background rate (black branches).", echo=FALSE}
+img <- image_read("medusa_plot.png")
+plot(img)
+```
+
+```{r MEDUSA details, fig.cap="Summary of MEDUSA-inferred diversification regimes, including model fit statistics and estimated speciation and extinction parameters for each rate shift detected in the halictid phylogeny.", echo=FALSE}
+img <- image_read("medusa-summary.png")
+plot(img)
+```
+
+```{r BiSSE trait data, include=FALSE}
+# get tree tip labels
+taxa <- time.tree$tip.label
+
+# create a dataframe assigning each taxon a trait state
+trait.info <- data.frame(
+    taxon = c("Agapostemon_leunculus", "Agapostemon_tyleri", "Augochlora__Augochlora__pura", 
+            "Augochlorella_pomoniella", "Megalopta_genalis", "Neocorynura_discolor", 
+            "Augochloropsis_metallica", "Corynura__Cory__patagonica", "Dieunomia_nevadensis", 
+            "Dieunomia_triangulifera", "Lipotriches__Austro.__australica", "Pseudapis_unidentata", 
+            "Nomioides_facilis", "Chaetalictus_sp._2", "Lomatalictus_sp.", "Pachyhalictus_sp.", 
+            "Mexalictus_arizonensis","H.__Halictus__ligatus", "H.__Halictus__quadricinctus", 
+            "H.__Halictus__scabiosae", "H.__Seladonia__kessleri", "H.__Vestitohalictus__vestitus", 
+            "H.__Seladonia__tripartitus", "Thrincohalictus_prognathus", "L.___Dialictus___figueresi",
+            "L.__Dialictus__zephyrum", "L.__Hemihalictus__lustrans", "L.__Evylaeus__calceatum", 
+            "L.__Evylaeus__malachurum", "L.__Sphecodogastra__oenotherae", "L.__Evylaeus__marginatum", 
+            "L.__Evylaeus__politum", "L.__Australictus__lithuscum", "L.__Homalictus__megastigmus",
+            "L.__Homalictus__punctatus","L.__Chilalictus__florale", "L.__Chilalictus__lanarium",
+            "L.__Lasioglossum__scitulum","L.__Lasioglossum__zonulum", "L.__Parasphecodes__hybodinum", 
+            "L.__Lasioglossum__athabascense","Sphecodes_minor", "Sphecodes_ranunculi", 
+            "Caenohalictus_sp._2", "Caenohalictus_sp._3", "Habralictus_sp.", "Pseudagapostemon_brasiliensis",
+            "Pseudagapostemon_pissisi","Ruizantheda_proxima", "Ruizantheda_mutabilis", 
+            "Dinagapostemon_sp._1", "Dinagapostemon_sp._2", "Rhinetula_denticrus"),
+    trait = c(0, 0, 0, 1, 1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1,
+              0, 0, 1, 0, 1, 1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+              0, 0, 0, 0, 0, 0, 0)   # 1 = eusocial, 0 = non-eusocial
+)
+
+# ensure taxon names are in same order as tip labels in tree and are an exact match
+#setdiff(taxa, info$taxon) # checkpoint
+
+# count number of 0s (non-eusocial)
+n0 <- sum(trait.info$trait == 0) # non-eusocial in tree = 40
+
+# count number of 1s (eusocial)
+n1 <- sum(trait.info$trait == 1) # eusocial in tree = 13
+
+# calculate BiSSE sampling fractions
+# total Halictid species (~3500) and total eusocial species (~830)--obtained from Michener (2000), as reported in foundational paper aka brady paper
+# total real-world species counts
+N1 <- 830      # total eusocial Halictidae species (Michener 2000)
+N0 <- 3500 - 830   # total non-eusocial Halictidae species
+
+# sampling fractions for BiSSE
+f1 <- n1 / N1
+f0 <- n0 / N0
+
+sampling.f <- c(f0, f1)
+sampling.f
+
+
+```
+
+```{r building BiSSE model, warning=FALSE, include=FALSE}
+# extract trait vector in tip order
+# this ensures the states match the tree's tip labels exactly
+states <- setNames(trait.info$trait, trait.info$taxon)
+
+# build the BiSSE likelihood function
+lik.bisse <- make.bisse(time.tree, states, sampling.f = sampling.f) # full likelihood model (all rates different)
+lik.null<-constrain(lik.bisse,lambda0~lambda1, mu0~mu1, q01~q10) # null model (all rates same)
+lik.lambda = constrain(lik.bisse,mu0~mu1,q01~q10) # speciation only varies (lambda0 != lambda1)
+lik.mu = constrain(lik.bisse, lambda0~lambda1, q01~q10) # extinction only varies (mu0 != mu1)
+lik.lambdamu = constrain(lik.bisse, q01~q10) # speciation & extinction rates vary, but character state transitions (q’s) equal
+lik.state = constrain(lik.bisse, lambda0~lambda1, mu0~mu1) # constant speciation & extinction rates, but character state transitions vary
+
+# calculate starting values to begin ML optimization
+p = starting.point.bisse(time.tree)
+
+# fit each model
+fit.null<-find.mle(lik.null,x.init=p[argnames(lik.null)])
+fit.full<-find.mle(lik.bisse,x.init=p[argnames(lik.bisse)])
+fit.lambda = find.mle(lik.lambda, x.init=p[argnames(lik.lambda)])
+fit.mu = find.mle(lik.mu, x.init=p[argnames(lik.mu)])
+fit.lambdamu = find.mle(lik.lambdamu, x.init=p[argnames(lik.lambdamu)])
+fit.state = find.mle(lik.state, x.init=p[argnames(lik.state)])
+
+# compare models with an ANOVA test and Akaike Weights
+AnovaResults <- anova(fit.null, 
+                      all.different=fit.full, 
+                      free.lambda=fit.lambda, 
+                      free.mu=fit.mu, 
+                      free.lambda.mu=fit.lambdamu, 
+                      free.q=fit.state)
+print(AnovaResults)
+aicw(setNames(AnovaResults$AIC,rownames(AnovaResults)))
+```
+
+\FloatBarrier
+```{r ANOVA+Akaike Weights from BiSSE, echo=FALSE}
+df <- aicw(setNames(AnovaResults$AIC,rownames(AnovaResults)))
+kable(df, caption = "BiSSE model comparison statistics for six diversification models. Reported values include AIC scores, ΔAIC, and Akaike weights for models differing in constraints on speciation (lambda), extinction (mu), and transition (q) rates.")
+```
+
+
+```{r free-states bayesian inference, message=TRUE, warning=TRUE, include=FALSE, eval=FALSE}
+# set up priors and do preliminary runs
+prior <- make.prior.exponential(1/2)
+prelim <- mcmc(lik.state, fit.state$par, nsteps=100, prior=prior,w=1, print.every=0)
+w <- diff(sapply(prelim[2:(ncol(prelim)-1)], quantile, c(0.05, 0.95)))
+```
+
+```{r run MCMC free-state model, message=FALSE, warning=FALSE, include=FALSE, eval=FALSE}
+mcmc.bisse <- mcmc(lik.state, p[colnames(w)], nsteps=10000,prior=prior, w=w, print.every=1000)
+```
+
+
+```{r free-state convergence check, include=FALSE, eval=FALSE}
+mcmc.bisse <- mcmc.bisse[2001:10000,]
+plot(mcmc.bisse$i, mcmc.bisse$p, type="l", xlab="generation",ylab="log(L)")
+```
+
+```{r posterior distributions for free q BiSSE model, include=FALSE, eval=FALSE}
+post <- mcmc.bisse
+
+# extract λ (one parameter)
+lambda.values <- post[, "lambda1", drop = FALSE]
+colnames(lambda.values) <- "Shared λ"
+
+# extract μ (one parameter)
+mu.values <- post[, "mu1", drop = FALSE]
+colnames(mu.values) <- "Shared μ"
+
+# extract q parameters (two parameters)
+q.values <- post[, c("q01", "q10"), drop = FALSE]
+colnames(q.values) <- c("0→1 gain of eusociality", "1→0 loss of eusociality")
+
+# colors
+lambda.mu.color <- "steelblue"
+q.colors <- c("gray30", "goldenrod2")
+
+#plot posterior distributions
+profiles.plot(lambda.values,
+              col.line = lambda.mu.color,
+              las = 1,
+              main = "Posterior Distribution of Speciation Rate(lambda)Under Free-State Model")
+profiles.plot(mu.values,
+              col.line = lambda.mu.color,
+              las = 1,
+              main = "Posterior Distribution of Extinction Rate (mu) Under Free-State Model")
+profiles.plot(q.values,
+              col.line = q.colors,
+              las = 1,
+              legend.pos = "topright",
+              main = "Posterior Distribution of Transition Rates (q) Under Free-State Model")
+
+```
+```{r full model bayesian inference, include=FALSE, eval=FALSE}
+# set up priors and do preliminary runs
+prior <- make.prior.exponential(1/2)
+prelim <- mcmc(lik.bisse, fit.full$par, nsteps=100, prior=prior,w=1, print.every=0)
+w <- diff(sapply(prelim[2:(ncol(prelim)-1)], quantile, c(0.05, 0.95)))
+```
+
+```{r run full MCMC model, message=FALSE, warning=FALSE, include=FALSE, eval=FALSE}
+mcmc.bisse <- mcmc(lik.bisse, p[colnames(w)], nsteps=10000,prior=prior, w=w, print.every=1000)
+```
+
+```{r view posterior probability estimates for various rates, include=FALSE, eval=FALSE}
+# extract values for lambda, mu, and q
+colMeans(mcmc.bisse)[2:ncol(mcmc.bisse)]
+colors<-setNames(c("gray30","goldenrod2"),1:2)
+lambda.values = mcmc.bisse[,grep("lambda", colnames(mcmc.bisse))]
+mu.values = mcmc.bisse[,grep("mu", colnames(mcmc.bisse))]
+q.values = mcmc.bisse[,grep("q", colnames(mcmc.bisse))]
+colnames(lambda.values) <- c("Non-eusocial", "Eusocial")
+colnames(mu.values) <- c("Non-eusocial", "Eusocial")
+colnames(q.values) <- c("0→1 gain eusociality", "1→0 loss eusociality")
+
+# plot the posterior distributions for lambda, mu, and q
+profiles.plot(lambda.values,col.line=colors, las=1, legend.pos="topright", 
+              main="Posterior Distribution of Speciation Rates (λ) Under Full Model")
+profiles.plot(mu.values,col.line=colors, las=1, legend.pos="topright",
+              main="Posterior Distribution of Extinction Rates (μ) Under Full Model")
+profiles.plot(q.values,col.line=colors, las=1, legend.pos="topright",
+              main="Posterior Distribution of Transition Rates (q) Under Full Model")
+
+```
+
+```{r plot convergence-checks, fig.cap="Convergence diagnostics for the BiSSE free-state model MCMC chain are shown on the left, and the convergence diagnostics for the full BiSSE model MCMC chain on the right.", echo=FALSE}
+img <- image_read("bisse-mcmc-convergence.png")
+plot(img)
+```
+
+\newpage
+
+```{r lambda posterior probability estimates, fig.cap="Posterior density of the speciation rate (lambda) from the free-state BiSSE model, which estimates a single shared extinction parameter across all lineages, is shown on the left. Posterior density of speciation rates (lambda) for eusocial and non-eusocial lineages estimated under the full BiSSE model is shown on the right. ", echo=FALSE}
+img <- image_read("complete-bisse-lambda.png")
+plot(img)
+```
+
+
+```{r mu posterior probability estimates, fig.cap="Posterior density of the extinction rate (mu) from the free-state BiSSE model, which estimates a single shared extinction parameter across all lineages, is shown on the left. Posterior density of speciation rates (mu) for eusocial and non-eusocial lineages estimated under the full BiSSE model is shown on the right.", echo=FALSE}
+img <- image_read("complete-bisse-mu.png")
+plot(img)
+```
+
+\newpage
+```{r q posterior probability estimates, fig.cap="Posterior distributions of transition rates (q01: non-eusocial → eusocial; q10: eusocial → non-eusocial) estimated under the free-state BiSSE model are shown on the left, and the same estimations under the full BiSSE model are shown on the right.", echo=FALSE}
+img <- image_read("complete-bisse-q.png")
+plot(img)
+```
+
+# Discussion
+
+Figure 1 shows the chronogram for the three eusocial lineages of halicted bees (black branches) constructed by the authors of the Brady et al. [@brady2006] paper using a relaxed molecular clock technique. The time-calibrated phylogeny made with `chronos()` in R[@Rcoreteam2024] from this current project is shown in Figure 2. The overall topology of this project's time-calibrated tree (Figure 2) closely mirrors the chronogram presented in the foundational study (Figure 1), with most major clades and intergeneric relationships recovered in identical positions. Only a small number of localized differences were observed between the two reconstructions. In the Brady et al. [@brady2006] tree, *Neocorynura discolor* and *Megalopta genalis* appear in the opposite order relative to my results, as do *Evylaeus marginatum* and *Sphecodogastra oenotherae*, and *H. Halictus quadricinctus* and *H. Halictus ligatus*. Additionally, whereas *L. Hemihalictus lustrans* and *L. Dialictus zephyrum* form a well-supported sister pair in my chronogram, these taxa were represented as part of an unresolved polytomy in the original analysis. Aside from these minor differences, the two phylogenies exhibit strikingly similar topologies, suggesting that both analyses capture a consistent underlying evolutionary signal. Several factors may account for the few discrepancies observed. One possibility is that slight differences in alignment trimming, particularly in intronic regions identified unalignable, could have influenced the placement of certain taxa. Alternatively, methodological differences between the two approaches may contribute to the observed variation. The foundational study used a full Bayesian relaxed molecular clock implemented in MrBayes, which uses more intensive, user-specified parameters than `chronos()`. Minor methodological or parameter differences between these approaches can produce small shifts in node order or resolution. Nevertheless, the high degree of congruence between the two chronograms supports the robustness of the inferred relationships and provides confidence in the downstream diversification analyses.
+
+A lineage-through-time (LTT) plot is shown in Figure 3, depicting a long period of slow lineage accumulation followed by a noticeable increase in diversification rates toward the present. This finding suggests that diversification rates have not been constant through time and provides preliminary support for the possibility of detectable rate shifts under a birth–death framework such as MEDUSA. Figure 4 shows the resulting plot from the MEDUSA analysis, which identified a total of 2 rate shifts. The first and most dramatic shift occurred at node 73, leading to the large red clade. This shift is associated with the highest diversification rate detected in the phylogeny ($r = 0.148$), as shown by Figure 5.  This accelerated rate strongly suggests that a key evolutionary innovation occurred at this node, driving a rapid increase in net speciation. Approximately 60% (10 out of 17) of the taxa included within this red clade are eusocial. Additionally, this red clade encompasses nearly all of the sampled eusocial lineages, containing 10 out of the 13 eusocial taxa included in this project. These results provide compelling evidence that the evolution of eusociality in halictid bees led to eusocial lineages exhibiting higher diversification rates than their non-eusocial relatives. This finding is emphasized by the second rate shift at node 90 identified by MEDUSA. Figure 4 denotes this second rate shift with a green clade nested within the red clade, with Figure 5 associating this green clade with a rate ($r = 3.72 \times 10^{-5}$) that is much slower than the red clade and is even slower than the background rate  ($r = 1.86 \times 10^{-2}$). Because this clade is composed solely of non-eusocial taxa and is nested within the eusocial lineage, this pattern may represent a reversal from eusociality to a simpler form of social organization.
+
+While the MEDUSA analysis strongly supports the role of eusociality in accelerating diversification, a discrepancy is noted when compared to previous phylogenetic studies of social evolution in Halictidae. Earlier work has suggested that the three primarily eusocial lineages are characterized by multiple subsequent reversals to simpler social forms or fully solitary nesting [@danforth2002;@packer1991]. In contrast, my diversification rate analysis identified only one such reversal, represented by the slow-rate (green) clade—which is nested within the larger, high-rate (red) clade containing two of the three major eusocial lineages. This difference in the detected number of reversals may stem from the inherent limitations of the MEDUSA approach when applied to complex social evolution, or it could be a consequence of the taxonomic sampling in this study. Specifically, the exclusion of the Rophitinae subfamily and the overall dataset size might preclude the detection of all fine-scale, lineage-specific shifts and reversals that could be revealed with a more densely sampled phylogeny. Nonetheless, the stark contrast between the high diversification rate of the red eusocial clade and the exceptionally slow rate of the green non-eusocial sister group underscores the profound impact of eusociality as a key innovation driving macroevolutionary success in Halictidae.
+
+Table 1 shows the Akaike weights and AIC scores for all 6 BiSSE models that were fit onto the time-calibrated tree. The model with the lowest AIC (the "fit" column) and highest Akaike weight (the "w" column) was the "free.q" model, which describes constant speciation and extinction rates with varying character state transitions (free-state). However, due to the assumptions of this model that there is no relationship between social state and macroevolutionary rate, it is not suitable for evaluating the central hypothesis of this study. Additionally, the MEDUSA analysis in Figure 4 confirms the trait of eusociality as a driver of increased diversification rates in halictid bees. Thus, the BiSSE analysis was also conducted using the full model to distinctly evaluate whether the trait of eusociality has a significant impact on speciation, extinction, and/or character transition rates. Figure 6 shows the convergence diagnostics for the BiSSE MCMC analysis using the free-state model on the left and the full model on the right, both trace plots demonstrating no clear trends. This indicates that the runs converged successfully. Figure 7 shows the shared speciation (lambda) rate estimated across all included halictid lineages using the free-state BiSSE model on the left, and the speciation rate for eusocial and non-eusocial lineages estimated under the full BiSSE model on the right. The free-state model results show a bimodal distribution with the highest peak around a parameter estimate of 2.3 and the second highest peak around 2.6. The full model shows a bimodal distribution for both the eusocial lineages (gold) and the non-eusocial lineages (gray), both having their highest peaks between a parameter estimate of 0.7-1 and their second highest peaks between 1.7 and 2.0. The overlap between the distributions in the the full model imply that the speciation rates are not statistically distinguishable between the two social states. However, the non-eusocial lineages have a higher probability mass in the highest parameter ranges (>2.0). This suggests that non-eusociality in halictid bees may be associated with higher speciation rates than eusociality, which makes biological sense because maintaining eusociality imposes behavioral, reproductive, and ecological constraints that may limit diversification [@brady2006]. Additionally, the overall shape of the shared speciation rate in the free-state model relatively matches the combined shape of the full model plot. This observation likely contributes to the reasoning behind AIC favoring the free-state model, since the full model uses an extra parameter to describe a speciation distribution that can arguably be described by one using the free-state model.
+
+Figure 8 shows the shared extinction (mu) rate estimated across all included halictid bee lineages using the free-state BiSSE model on the left, and the extinction rate for eusocial and non-eusocial lineages estimated under the full BiSSE model on the right. The free-state model shows a similar bimodal distribution to that of the shared speciation rate from Figure 7, with the highest peak around a parameter estimate of 2.2 and the second highest peak around 2.5. The full model shows a large, dominant peak for non-eusocial (gray) lineages around a parameter estimate of 2.0 with the highest peak around 3.7. For eusocial lineages (gold), several peaks are scattered across the plot, suggesting a considerable amount of uncertainty, with the highest peak around a parameter estimate of 1 and the second highest peak around 0.5. Similar to the results from the full model BiSSE analysis in Figure 7, there is a significant overlap between the distributions. Additionally, the same observation of the combined shape of the full model plot corresponds to the overall distribution of the free-state model. Consequently, this insight also most likely plays a role in the AIC favoring the free-state model over the full model. However, there is a noticeable concentration of the eusocial lineage distribution extending past the non-eusocial distribution into the higher parameter ranges (>4.0). This suggests that the trait of eusociality in halictid bees is associated with higher extinction rates than in non-eusocial lineages, which makes biological sense due to the regressions from eusociality to simpler social forms that have been noted in previous works [@danforth2002]. 
+
+Figure 9 shows the posterior density for the two transition rates, with *q01* (gray) to describe the rate of gaining eusociality and *q10* (gold) describing the rate of losing eusociality. The transition rate distributions estimated under the free-state BiSSE model are shown on the left, and the estimations under the full model are on the right. In both plots, the distribution for *q01* is a highly pronounced spike at zero, suggesting that gaining eusociality is an exceptionally rare evolutionary event. This makes biological sense because the coordinated changes in behavior, life history, and morphology that are required in eusocial populations are likely difficult for a solitary or communal species to transition into [@danforth2002]. The distribution for *q10* in the free-state model has a sharp spike that is mostly concentrated at a probability density of ~1.8 around the zero parameter, then drastically reduces to ~0.1 around the 1 parameter. The *q10* distribution in the full model is much lower and broader, with a peak probability density of ~5 and extending across a parameter estimate range of 0-0.5. These differences suggest uncertainty in the precise distribution of the *q10* parameter. Considering both *q10* and *q01*, the free-state model and the full model ultimately show that the loss of the eusocial trait in halictid bees is more common than gaining eusociality. This finding is congruent with existing phylogenies, which depict more reversals to solitary or communal nesting than independent origins of eusociality in halictid bees [@danforth2002].
+
+# Conclusions
+
+The integration of MEDUSA and BiSSE analyses provides a nuanced perspective on the impact of eusociality on macroevolutionary dynamics in halictid bees, supporting the hypothesis that the trait served as a key evolutionary innovation despite not maintaining a sustained, statistically higher diversification rate. The MEDUSA analysis offers compelling evidence for this, pinpointing a significant acceleration in diversification ($r = 0.148$) associated with the initial origin of eusociality (the red clade), contrasted by an exceptionally slow rate ($r = 3.72 \times 10^{-5}$) in a nested non-eusocial lineage. This strong rate differential confirms the immediate macroevolutionary consequence of social complexity. However, the full BiSSE model revealed that this acceleration does not translate into a statistically distinguishable, long-term difference in baseline speciation (lambda) or extinction (mu) rates, with the AICc favoring the simpler free-state model. This discrepancy suggests that while eusociality led to initial diversification, the behavioral and reproductive constraints inherent in the social state may limit its long-term potential, preventing a consistently higher speciation rate. Finally, the transition rate analysis clarified the trait's variability: the gain of eusociality (*q01*) is an extremely rare event (a sharp spike at zero), while the loss of eusociality (*q10*) is estimated to be much more probable, consistent with the observed reversals to simpler social forms found in previous studies[@danforth2002]. Overall, these findings reveal that eusociality in halictid bees provides a potent, yet unstable, short-term engine for diversification, rather than a permanent boost to the overall speciation-extinction balance. 
+
+The current study establishes a clear macroevolutionary link between the origin of eusociality and a subsequent burst of diversification in Halictidae, but several identified limitations provide important avenues for future research. To refine the estimates of speciation, extinction, and character transition rates, future analyses must focus on expanding the taxonomic density of the phylogeny. This study utilized only 53 taxa, representing a conservative estimate of approximately 1.5% of the total Halictid species richness (which contains over 3500 species[@brady2006]). An increase in sampling density would improve the statistical power of both the BiSSE and MEDUSA models, allowing for a more constrained estimation of the highly uncertain parameters, particularly the eusocial extinction rate (mu) and the social reversal rate (*q10*). Also, future work should aim to include the Rophitinae subfamily, which was excluded from the current analysis due to limitations in the foundational dating study [@brady2006]. The exclusion of this Halictidae subfamily could potentially bias rate estimates and obscure early diversification events. A more comprehensive phylogeny incorporating Rophitinae would allow for a complete test of social evolution across all major halictid lineages. These adjustments might dissipate the discrepancy between the MEDUSA analysis confirming the presence of diversification rate shifts in eusocial lineages and the BiSSE model evaluation (using AIC values and Akaike weights as criteria) selecting the free-state model, which constrains speciation and extinction rates to be equal, as the best supporting model for the limited dataset used in this current study.
+
+# Acknowledgments
+AI assistance (ChatGPT) was used to help debug and refine portions of the R code used for data processing.
+
+# References
+
+
